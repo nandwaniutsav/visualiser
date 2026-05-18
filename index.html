@@ -820,7 +820,7 @@ async function generate() {
     document.getElementById('loading-prompt').textContent = imagePrompt.substring(0, 120) + '…';
 
     // Step 2: Generate image with gpt-image-1
-    const imgRes = await fetch(`${WORKER_URL}/v1/images/generate`, {
+    const imgRes = await fetch(`${WORKER_URL}/v1/images/generations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
