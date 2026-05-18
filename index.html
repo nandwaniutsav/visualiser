@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nandwani Visualiser</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0b09;
+  --bg2: #161512;
+  --bg3: #1e1c19;
+  --border: #2a2820;
+  --border2: #3a3830;
+  --gold: #c4a96a;
+  --gold2: #dfc48a;
+  --text: #f0ede6;
+  --muted: #7a7468;
+  --faint: #3a3830;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── PIN SCREEN ── */
+#pin-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 100;
+  gap: 0;
+}
+
+.pin-brand {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.pin-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px;
+  font-weight: 300;
+  color: var(--text);
+  margin-bottom: 48px;
+}
+
+.pin-dots {
+  display: flex; gap: 14px;
+  margin-bottom: 40px;
+}
+
+.pin-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: transparent;
+  transition: all 0.2s;
+}
+
+.pin-dot.filled {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.pin-dot.error {
+  background: #c45a5a;
+  border-color: #c45a5a;
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  gap: 12px;
+}
+
+.pin-key {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  border: 0.5px solid var(--border2);
+  background: var(--bg2);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 20px;
+  font-weight: 300;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.pin-key:hover { background: var(--bg3); border-color: var(--gold); }
+.pin-key:active { transform: scale(0.93); }
+.pin-key.del { font-size: 16px; color: var(--muted); }
+
+.pin-error {
+  margin-top: 24px;
+  font-size: 12px;
+  color: #c45a5a;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.pin-error.show { opacity: 1; }
+
+/* ── MAIN APP ── */
+#app {
+  display: none;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 5rem;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  position: relative;
+}
+
+.app-brand {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 11px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+.app-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.app-sub {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.sign-out-btn {
+  position: absolute;
+  top: 0; right: 0;
+  background: none;
+  border: 0.5px solid var(--border2);
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+}
+
+.sign-out-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* Auth wall */
+#auth-wall {
+  display: none;
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.auth-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 28px;
+  font-weight: 300;
+  margin-bottom: 8px;
+}
+
+.auth-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.btn-google {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg2);
+  border: 0.5px solid var(--border2);
+  border-radius: 8px;
+  padding: 12px 24px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-google:hover { border-color: var(--gold); }
+
+/* Upload grid */
+.upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.panel {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.panel-label {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.upload-zone {
+  border: 1px dashed var(--border2);
+  border-radius: 8px;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.upload-zone:hover { border-color: var(--gold); }
+
+.upload-zone input[type="file"] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+
+.upload-zone img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.upload-icon { font-size: 24px; color: var(--faint); pointer-events: none; }
+.upload-hint { font-size: 11px; color: var(--faint); pointer-events: none; letter-spacing: 0.05em; }
+
+.upload-replace {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(12,11,9,0.75);
+  text-align: center;
+  padding: 5px;
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+/* Config */
+.config-panel {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field-label {
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+select, textarea {
+  background: var(--bg3);
+  border: 0.5px solid var(--border2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select:focus, textarea:focus { border-color: var(--gold); }
+select option { background: var(--bg2); }
+
+textarea { resize: none; height: 72px; line-height: 1.6; }
+
+.divider { height: 0.5px; background: var(--border); margin: 1rem 0; }
+
+.style-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chip {
+  background: var(--bg3);
+  border: 0.5px solid var(--border2);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+
+.chip:hover { border-color: var(--gold); color: var(--gold); }
+.chip.active { background: #1e1a10; border-color: var(--gold); color: var(--gold); }
+
+/* Generate */
+.btn-generate {
+  width: 100%;
+  background: var(--gold);
+  color: #0c0b09;
+  border: none;
+  border-radius: 10px;
+  padding: 16px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  margin-bottom: 1.5rem;
+}
+
+.btn-generate:hover:not(:disabled) { opacity: 0.88; }
+.btn-generate:active:not(:disabled) { transform: scale(0.99); }
+.btn-generate:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Loading */
+.loading {
+  display: none;
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 2.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.loading.show { display: block; }
+
+.spinner {
+  width: 36px; height: 36px;
+  border: 1.5px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-label { font-size: 13px; color: var(--muted); font-style: italic; }
+.loading-prompt { font-size: 11px; color: var(--faint); margin-top: 8px; line-height: 1.6; max-width: 480px; margin-left: auto; margin-right: auto; }
+
+/* Error */
+.error-msg {
+  display: none;
+  background: #1e1010;
+  border: 0.5px solid #4a2020;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  font-size: 13px;
+  color: #e28080;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+.error-msg.show { display: block; }
+
+/* Result */
+.result-area {
+  display: none;
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.result-area.show { display: block; }
+
+.result-img { width: 100%; display: block; }
+
+.result-footer {
+  padding: 1rem 1.25rem;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  flex: 1;
+  background: var(--bg3);
+  border: 0.5px solid var(--border2);
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--gold);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s;
+  text-decoration: none;
+  display: block;
+}
+
+.btn-action:hover { border-color: var(--gold); }
+
+/* History */
+.history-section { margin-top: 2.5rem; }
+
+.section-label {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1rem;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.history-item {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 0.5px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.history-item:hover { border-color: var(--gold); }
+.history-item img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; }
+
+.history-meta {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  background: var(--bg2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .upload-grid, .config-grid { grid-template-columns: 1fr; }
+  .history-grid { grid-template-columns: repeat(2, 1fr); }
+  .app-title { font-size: 26px; }
+  .sign-out-btn { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="pin-screen">
+  <div class="pin-brand">Nandwani Interio</div>
+  <div class="pin-title">Visualiser</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <button class="pin-key" style="visibility:hidden"></button>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error" id="pin-error">Incorrect PIN</div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- Auth wall (shown if not signed in after PIN) -->
+  <div id="auth-wall">
+    <div class="auth-title">Sign in to continue</div>
+    <div class="auth-sub">Use your Nandwani Google account</div>
+    <button class="btn-google" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+
+  <!-- Main content (shown when signed in) -->
+  <div id="main-content" style="display:none">
+
+    <div class="app-header">
+      <div class="app-brand">Nandwani Interio</div>
+      <div class="app-title">AI Visualiser</div>
+      <div class="app-sub">Upload · Configure · Generate</div>
+      <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+    </div>
+
+    <!-- Uploads -->
+    <div class="upload-grid">
+      <div class="panel">
+        <div class="panel-label">Customer's Sofa / Room</div>
+        <div class="upload-zone" id="zone-room">
+          <input type="file" id="file-room" accept="image/*" onchange="handleUpload(this,'zone-room','prev-room','room')" />
+          <img id="prev-room" style="display:none" />
+          <div class="upload-icon">↑</div>
+          <div class="upload-hint">Tap to upload photo</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Fabric / Material Swatch</div>
+        <div class="upload-zone" id="zone-fabric">
+          <input type="file" id="file-fabric" accept="image/*" onchange="handleUpload(this,'zone-fabric','prev-fabric','fabric')" />
+          <img id="prev-fabric" style="display:none" />
+          <div class="upload-icon">↑</div>
+          <div class="upload-hint">Tap to upload swatch</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="config-panel">
+      <div class="config-grid">
+        <div class="field">
+          <div class="field-label">Product Type</div>
+          <select id="product" onchange="checkReady()">
+            <option value="">Select product…</option>
+            <option value="sofa upholstery">Sofa Upholstery</option>
+            <option value="curtains">Curtains</option>
+            <option value="blinds">Blinds</option>
+            <option value="wallpaper">Wallpaper</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="field-label">Room Setting</div>
+          <select id="room-type">
+            <option value="living room">Living Room</option>
+            <option value="bedroom">Bedroom</option>
+            <option value="dining room">Dining Room</option>
+            <option value="home office">Home Office</option>
+            <option value="kids room">Kids Room</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="field-label" style="margin-bottom:10px;">Visual Style</div>
+      <div class="style-chips" id="style-chips">
+        <div class="chip active" data-val="photorealistic interior design photograph">Photorealistic</div>
+        <div class="chip" data-val="lifestyle editorial interior shot">Lifestyle Editorial</div>
+        <div class="chip" data-val="architectural CGI render">Architectural Render</div>
+        <div class="chip" data-val="warm natural light interior">Warm & Natural</div>
+        <div class="chip" data-val="luxury showroom display">Luxury Showroom</div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="field">
+        <div class="field-label">Additional Notes</div>
+        <textarea id="notes" placeholder="E.g. earthy tones, Scandinavian style, customer prefers minimal look…"></textarea>
+      </div>
+    </div>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <button class="btn-generate" id="btn-gen" onclick="generate()" disabled>
+      ✦ Generate Visualisation
+    </button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-label">Creating your visualisation…</div>
+      <div class="loading-prompt" id="loading-prompt"></div>
+    </div>
+
+    <div class="result-area" id="result-area">
+      <img class="result-img" id="result-img" />
+      <div class="result-footer">
+        <a class="btn-action" id="download-link" download="nandwani-visualisation.png">↓ Download</a>
+        <button class="btn-action" onclick="generate()">↺ Regenerate</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="history-section" id="history-section" style="display:none">
+      <div class="section-label">Recent Generations</div>
+      <div class="history-grid" id="history-grid"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// CONFIGURATION — replace before deploying
+// ─────────────────────────────────────────
+const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY_HERE';
+
+const firebaseConfig = {
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const CORRECT_PIN = '7084';
+// ─────────────────────────────────────────
+
+// Init Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// State
+let pinEntry = '';
+let roomB64 = null;
+let fabricB64 = null;
+let selectedStyle = 'photorealistic interior design photograph';
+let currentUser = null;
+let history = [];
+
+// ── PIN LOGIC ──
+function pinPress(digit) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += digit;
+  updateDots();
+  if (pinEntry.length === 4) {
+    setTimeout(checkPin, 120);
+  }
+}
+
+function pinDel() {
+  pinEntry = pinEntry.slice(0, -1);
+  updateDots();
+}
+
+function updateDots(state) {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('d' + i);
+    dot.className = 'pin-dot';
+    if (state === 'error') dot.classList.add('error');
+    else if (i < pinEntry.length) dot.classList.add('filled');
+  }
+}
+
+function checkPin() {
+  if (pinEntry === CORRECT_PIN) {
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initAuth();
+  } else {
+    updateDots('error');
+    document.getElementById('pin-error').classList.add('show');
+    setTimeout(() => {
+      pinEntry = '';
+      updateDots();
+      document.getElementById('pin-error').classList.remove('show');
+    }, 900);
+  }
+}
+
+// Keyboard support for PIN
+document.addEventListener('keydown', e => {
+  if (document.getElementById('pin-screen').style.display === 'none') return;
+  if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+  if (e.key === 'Backspace') pinDel();
+});
+
+// ── FIREBASE AUTH ──
+function initAuth() {
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('auth-wall').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      loadHistory();
+    } else {
+      currentUser = null;
+      document.getElementById('auth-wall').style.display = 'block';
+      document.getElementById('main-content').style.display = 'none';
+    }
+  });
+}
+
+function signInGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => showError('Sign-in failed: ' + err.message));
+}
+
+function signOut() {
+  auth.signOut();
+}
+
+// ── STYLE CHIPS ──
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    selectedStyle = c.dataset.val;
+  });
+});
+
+// ── UPLOAD ──
+function handleUpload(input, zoneId, prevId, type) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const zone = document.getElementById(zoneId);
+    const prev = document.getElementById(prevId);
+    prev.src = e.target.result;
+    prev.style.display = 'block';
+    zone.querySelector('.upload-icon').style.display = 'none';
+    zone.querySelector('.upload-hint').style.display = 'none';
+
+    // Add replace overlay if not already there
+    if (!zone.querySelector('.upload-replace')) {
+      const ov = document.createElement('div');
+      ov.className = 'upload-replace';
+      ov.textContent = 'Tap to replace';
+      zone.appendChild(ov);
+    }
+
+    const b64 = e.target.result.split(',')[1];
+    if (type === 'room') roomB64 = b64;
+    else fabricB64 = b64;
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+}
+
+function checkReady() {
+  const product = document.getElementById('product').value;
+  const ready = (roomB64 || fabricB64) && product;
+  document.getElementById('btn-gen').disabled = !ready;
+}
+
+// ── GENERATE ──
+async function generate() {
+  hideError();
+  document.getElementById('result-area').classList.remove('show');
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('btn-gen').disabled = true;
+
+  const product = document.getElementById('product').value;
+  const roomType = document.getElementById('room-type').value;
+  const notes = document.getElementById('notes').value.trim();
+
+  try {
+    // Step 1: GPT-4o Vision builds the refined prompt
+    const visionMessages = buildVisionMessages(product, roomType, notes);
+    const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: visionMessages }]
+      })
+    });
+
+    const gptData = await gptRes.json();
+    if (gptData.error) throw new Error(gptData.error.message);
+
+    let imagePrompt = gptData.choices[0].message.content.trim();
+    document.getElementById('loading-prompt').textContent = imagePrompt.substring(0, 120) + '…';
+
+    // Step 2: Generate image with gpt-image-1
+    const imgRes = await fetch('https://api.openai.com/v1/images/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: imagePrompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'high'
+      })
+    });
+
+    const imgData = await imgRes.json();
+
+    // gpt-image-1 returns b64_json by default
+    if (imgData.error) throw new Error(imgData.error.message);
+
+    const imgB64 = imgData.data[0].b64_json;
+    const imgSrc = `data:image/png;base64,${imgB64}`;
+
+    document.getElementById('result-img').src = imgSrc;
+    document.getElementById('download-link').href = imgSrc;
+    document.getElementById('result-area').classList.add('show');
+
+    // Save to Firestore history
+    saveToHistory(imgSrc, product, roomType);
+
+  } catch(err) {
+    showError('Error: ' + (err.message || 'Something went wrong. Check your API key and try again.'));
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('btn-gen').disabled = false;
+    checkReady();
+  }
+}
+
+function buildVisionMessages(product, roomType, notes) {
+  const content = [];
+
+  let prompt = `You are an interior design visualisation expert for Nandwani Interio, a premium home furnishings store in India.
+
+Your task: Write a detailed image generation prompt for a ${selectedStyle} showing ${product} applied in a ${roomType}.`;
+
+  if (roomB64) prompt += `\n\nA reference photo of the customer's room/sofa is attached. Study the existing furniture style, colours, layout, and overall interior aesthetic. The generated image should feel like it belongs in the same space.`;
+  if (fabricB64) prompt += `\n\nA fabric/material swatch is attached. This exact fabric — its colour, texture, weave pattern, and material quality — must be applied to the ${product} in the generated image.`;
+  if (notes) prompt += `\n\nCustomer notes: ${notes}`;
+
+  prompt += `\n\nWrite ONLY the image prompt. Make it richly detailed — describe lighting (warm, natural), camera angle, depth of field, material textures, room atmosphere. Aim for a result a customer would use to make a purchase decision. Max 180 words. No preamble, no explanation.`;
+
+  content.push({ type: 'text', text: prompt });
+  if (roomB64) content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${roomB64}`, detail: 'high' } });
+  if (fabricB64) content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${fabricB64}`, detail: 'high' } });
+
+  return content;
+}
+
+// ── HISTORY ──
+async function saveToHistory(imgSrc, product, roomType) {
+  if (!currentUser) return;
+  try {
+    const entry = {
+      uid: currentUser.uid,
+      product,
+      roomType,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      // Store only a small thumbnail (first 50k chars of b64 is too large — store URL or skip image in Firestore)
+      // For simplicity we store metadata only; image shown in session
+      imgPreview: imgSrc.substring(0, 200) // just a marker
+    };
+    await db.collection('visualisations').add(entry);
+    loadHistory();
+  } catch(e) { /* non-critical */ }
+}
+
+async function loadHistory() {
+  if (!currentUser) return;
+  // Session-only history (images are too large for Firestore)
+  renderSessionHistory();
+}
+
+let sessionImages = [];
+
+function saveToSession(imgSrc, product) {
+  sessionImages.unshift({ imgSrc, product, time: new Date() });
+  if (sessionImages.length > 6) sessionImages = sessionImages.slice(0, 6);
+  renderSessionHistory();
+}
+
+function renderSessionHistory() {
+  const grid = document.getElementById('history-grid');
+  const section = document.getElementById('history-section');
+  if (sessionImages.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  grid.innerHTML = sessionImages.map(item => `
+    <div class="history-item" onclick="viewHistoryItem('${item.imgSrc.substring(0,20)}')">
+      <img src="${item.imgSrc}" loading="lazy" />
+      <div class="history-meta">${item.product} · ${item.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+    </div>
+  `).join('');
+}
+
+// Override saveToHistory to also do session
+const _origGenerate = generate;
+// Patch result display to also save session
+const origGenerate = generate;
+
+// ── UTILS ──
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError() {
+  document.getElementById('error-msg').classList.remove('show');
+}
+</script>
+</body>
+</html>
