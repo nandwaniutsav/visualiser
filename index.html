@@ -640,9 +640,9 @@ textarea { resize: none; height: 72px; line-height: 1.6; }
 
 <script>
 // ─────────────────────────────────────────
-// CONFIGURATION — replace before deploying
+// CONFIGURATION
 // ─────────────────────────────────────────
-const OPENAI_API_KEY = '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';
+const WORKER_URL = 'https://nandwani-openai-proxy.utsavnandwani0722.workers.dev';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAVYacXYIwfCsJF9RJBiEBsTj_dncAaNX8",
@@ -734,8 +734,12 @@ function initAuth() {
 
 function signInGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => showError('Sign-in failed: ' + err.message));
+  auth.signInWithRedirect(provider);
 }
+
+auth.getRedirectResult().catch(err => {
+  if (err && err.code !== 'auth/no-current-user') console.error('Redirect error:', err);
+});
 
 function signOut() {
   auth.signOut();
@@ -799,9 +803,9 @@ async function generate() {
   try {
     // Step 1: GPT-4o Vision builds the refined prompt
     const visionMessages = buildVisionMessages(product, roomType, notes);
-    const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const gptRes = await fetch(`${WORKER_URL}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o',
         max_tokens: 400,
@@ -816,9 +820,9 @@ async function generate() {
     document.getElementById('loading-prompt').textContent = imagePrompt.substring(0, 120) + '…';
 
     // Step 2: Generate image with gpt-image-1
-    const imgRes = await fetch('https://api.openai.com/v1/images/generate', {
+    const imgRes = await fetch(`${WORKER_URL}/v1/images/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-image-1',
         prompt: imagePrompt,
