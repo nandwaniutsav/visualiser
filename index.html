@@ -725,7 +725,7 @@ function checkPin() {
     setTimeout(() => {
       screen.style.display = 'none';
       document.getElementById('app').style.display = 'block';
-      initAuth();
+      document.getElementById('main-content').style.display = 'block';
     }, 450);
   } else {
     updateDots('error');
@@ -746,24 +746,6 @@ document.addEventListener('keydown', e => {
   if (e.key >= '0' && e.key <= '9') pinPress(e.key);
   if (e.key === 'Backspace') pinDel();
 });
-
-// ── AUTH ──
-function initAuth() {
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user;
-      document.getElementById('auth-wall').style.display = 'none';
-      document.getElementById('main-content').style.display = 'block';
-      const b = document.getElementById('user-badge');
-      if (b) b.textContent = user.displayName || user.email;
-    } else {
-      currentUser = null;
-      document.getElementById('auth-wall').style.display = 'flex';
-      document.getElementById('main-content').style.display = 'none';
-    }
-  });
-}
-
 function signInGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithRedirect(provider);
